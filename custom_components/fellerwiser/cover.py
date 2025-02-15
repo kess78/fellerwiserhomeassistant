@@ -24,13 +24,11 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def hello(covers, hass, host, apikey):
-    ip = host
-
     while True:
     # outer loop restarted every time the connection fails
         _LOGGER.info('Creating new connection...')
         try:
-            async with websockets.connect("ws://"+ip+"/api", additional_headers={'authorization':'Bearer ' + apikey}, ping_timeout=None) as ws:
+            async with websockets.connect("ws://" + host + "/api", additional_headers={'authorization':'Bearer ' + apikey}, ping_timeout=None) as ws:
                 while True:
                 # listener loop
                     try:
@@ -42,19 +40,17 @@ async def hello(covers, hass, host, apikey):
                             _LOGGER.info('Ping OK, keeping connection alive...')
                             continue
                         except:
-                            _LOGGER.info(
-                                'Ping error - retrying connection in {} sec (Ctrl-C to quit)'.format(10))
+                            _LOGGER.info('Ping error - retrying connection in {} sec (Ctrl-C to quit)'.format(10))
                             await asyncio.sleep(10)
                             break
                     _LOGGER.info('Server said > {}'.format(result))
                     data = json.loads(result)     
                     for l in covers:
-                        if l.unique_id == "cover-"+str(data["load"]["id"]):
-                            _LOGGER.info("found entity to update")
+                        if l.unique_id == "cover-" + str(data["load"]["id"]):
+                            _LOGGER.info('found entity to update')
                             l.updateExternal(data["load"]["state"]["level"], data["load"]["state"]["moving"])
         except socket.gaierror:
-            _LOGGER.info(
-                'Socket error - retrying connection in {} sec (Ctrl-C to quit)'.format(10))
+            _LOGGER.info('Socket error - retrying connection in {} sec (Ctrl-C to quit)'.format(10))
             await asyncio.sleep(10)
             continue
         except ConnectionRefusedError:
@@ -63,14 +59,11 @@ async def hello(covers, hass, host, apikey):
             await asyncio.sleep(10)
             continue
         except KeyError:
-            _LOGGER.info("KeyError")
+            _LOGGER.info('KeyError')
             continue
 
 def updatedata(host, apikey):
-    #ip = "192.168.0.18"
-    ip = host
-    key = apikey
-    return requests.get("http://"+ip+"/api/loads", headers= {'authorization':'Bearer ' + key})
+    return requests.get("http://" + host + "/api/loads", headers={'authorization':'Bearer ' + apikey})
 
 async def async_setup_entry(hass, entry, async_add_entities):
     host = entry.data['host']
@@ -82,7 +75,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     loads = response.json()
 
-    covers= []
+    covers = []
     for value in loads["data"]:
         if value["type"] == "motor":
             covers.append(FellerCover(value, host, apikey))
@@ -92,11 +85,15 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class FellerCover(CoverEntity):
+    """Representation of an Awesome Cover."""
 
     def __init__(self, data, host, apikey) -> None:
+        """Initialize an AwesomeCover."""
+        # Motor {'name': '00005341_0', 'device': '00005341', 'channel': 0, 'type': 'motor', 'id': 14, 'unused': False}
+
         self._data = data
-        self._name = data["name"]
         self._id = str(data["id"])
+        self._name = data["name"]
         self._is_opening = False
         self._is_closing = False
         self._is_opened = False
@@ -144,38 +141,32 @@ class FellerCover(CoverEntity):
 
     def open_cover(self, **kwargs: Any) -> None:
         self._position = kwargs.get(ATTR_POSITION, 100)
-        ip = self._host
-        response = requests.put("http://"+ip+"/api/loads/"+self._id+"/target_state", headers= {'authorization':'Bearer ' + self._apikey}, json={'level': 0})
+        response = requests.put("http://" + self._host + "/api/loads/" + self._id + "/target_state", headers={'authorization':'Bearer ' + self._apikey}, json={'level': 0})
         _LOGGER.info(response.json())
         self._state = True
         self._position = 100-(response.json()["data"]["target_state"]["level"]/100)
 
     def close_cover(self, **kwargs: Any) -> None:
         self._position = kwargs.get(ATTR_POSITION, 100)
-        ip = self._host
-        response = requests.put("http://"+ip+"/api/loads/"+self._id+"/target_state", headers= {'authorization':'Bearer ' + self._apikey}, json={'level': 10000})
+        response = requests.put("http://" + self._host + "/api/loads/" + self._id + "/target_state", headers={'authorization':'Bearer ' + self._apikey}, json={'level': 10000})
         _LOGGER.info(response.json())
         self._state = True
         self._position = 100-(response.json()["data"]["target_state"]["level"]/100)
 
     def set_cover_position(self, **kwargs: Any) -> None:
         self._position = kwargs.get(ATTR_POSITION, 100)
-        ip = self._host
-        response = requests.put("http://"+ip+"/api/loads/"+self._id+"/target_state", headers= {'authorization':'Bearer ' + self._apikey}, json={'level': (100-self._position)*100})
+        response = requests.put("http://" + self._host + "/api/loads/" + self._id + "/target_state", headers={'authorization':'Bearer ' + self._apikey}, json={'level': (100-self._position)*100})
         _LOGGER.info(response.json())
         self._state = True
         self._position = 100-(response.json()["data"]["target_state"]["level"]/100)
 
     def stop_cover(self, **kwargs: Any) -> None:
-        ip = self._host
-        response = requests.put("http://"+ip+"/api/loads/"+self._id+"/ctrl", headers= {'authorization':'Bearer ' + self._apikey}, json={'button': "stop", 'event': 'click'})
+        response = requests.put("http://" + self._host + "/api/loads/" + self._id + "/ctrl", headers={'authorization':'Bearer ' + self._apikey}, json={'button': "stop", 'event': 'click'})
         _LOGGER.info(response.json())
 
 
     def updatestate(self):
-        ip = self._host
-        # _LOGGER.info("requesting http://"+ip+"/api/loads/"+self._id)
-        return requests.get("http://"+ip+"/api/loads/"+self._id, headers= {'authorization':'Bearer ' + self._apikey})
+        return requests.get("http://" + self._host + "/api/loads/" + self._id, headers={'authorization':'Bearer ' + self._apikey})
 
 
     def update(self) -> None:

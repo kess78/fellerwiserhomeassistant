@@ -24,13 +24,11 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def hello(lights, hass, host, apikey):
-    ip = host
-
     while True:
     # outer loop restarted every time the connection fails
         _LOGGER.info('Creating new connection...')
         try:
-            async with websockets.connect("ws://"+ip+"/api", additional_headers={'authorization':'Bearer ' + apikey}, ping_timeout=None) as ws:
+            async with websockets.connect("ws://" + host + "/api", additional_headers={'authorization':'Bearer ' + apikey}, ping_timeout=None) as ws:
                 while True:
                 # listener loop
                     try:
@@ -42,8 +40,7 @@ async def hello(lights, hass, host, apikey):
                             _LOGGER.info('Ping OK, keeping connection alive...')
                             continue
                         except:
-                            _LOGGER.info(
-                                'Ping error - retrying connection in {} sec (Ctrl-C to quit)'.format(10))
+                            _LOGGER.info('Ping error - retrying connection in {} sec (Ctrl-C to quit)'.format(10))
                             await asyncio.sleep(10)
                             break
                     _LOGGER.info('Server said > {}'.format(result))
@@ -62,12 +59,11 @@ async def hello(lights, hass, host, apikey):
                         doUpdate = True
                     if doUpdate:
                         for l in lights:
-                            if l.unique_id == "light-"+str(data["load"]["id"]):
-                                _LOGGER.info("found entity to update")
+                            if l.unique_id == "light-" + str(data["load"]["id"]):
+                                _LOGGER.info('found entity to update')
                                 l.updateExternal(data["load"]["state"]["bri"])
         except socket.gaierror:
-            _LOGGER.info(
-                'Socket error - retrying connection in {} sec (Ctrl-C to quit)'.format(10))
+            _LOGGER.info('Socket error - retrying connection in {} sec (Ctrl-C to quit)'.format(10))
             await asyncio.sleep(10)
             continue
         except ConnectionRefusedError:
@@ -76,15 +72,12 @@ async def hello(lights, hass, host, apikey):
             await asyncio.sleep(10)
             continue
         except KeyError:
-            _LOGGER.info("KeyError")
+            _LOGGER.info('KeyError')
             continue
 
 
 def updatedata(host, apikey):
-    #ip = "192.168.0.18"
-    ip = host
-    key = apikey
-    return requests.get("http://"+ip+"/api/loads", headers= {'authorization':'Bearer ' + key})
+    return requests.get("http://" + host + "/api/loads", headers={'authorization':'Bearer ' + apikey})
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -97,7 +90,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     loads = response.json()
 
-    lights= []
+    lights = []
     for value in loads["data"]:
         if value["type"] in ["dim", "dali", "onoff"]:
             lights.append(FellerLight(value, host, apikey))
@@ -115,8 +108,8 @@ class FellerLight(LightEntity):
         # DALI Dimmer {'name': '00005341_0', 'device': '00005341', 'channel': 0, 'type': 'dali', 'id': 14, 'unused': False}
 
         self._data = data
-        self._name = data["name"]
         self._id = str(data["id"])
+        self._name = data["name"]
         self._state = None
         self._brightness = None
         self._host = host
@@ -177,11 +170,10 @@ class FellerLight(LightEntity):
         """
         
         if not kwargs: 
-            ip = self._host
-            response = requests.put("http://"+ip+"/api/loads/"+self._id+"/ctrl", headers= {'authorization':'Bearer ' + self._apikey}, json={'button': 'on', 'event': 'click'})
+            response = requests.put("http://" + self._host + "/api/loads/" + self._id + "/ctrl", headers={'authorization':'Bearer ' + self._apikey}, json={'button': 'on', 'event': 'click'})
             _LOGGER.info(response.json())
             self._state = True
-            response = requests.get("http://"+ip+"/api/loads/"+self._id, headers= {'authorization':'Bearer ' + self._apikey})
+            response = requests.get("http://" + self._host + "/api/loads/" + self._id, headers={'authorization':'Bearer ' + self._apikey})
             self._brightness = response.json()["data"]["state"]["bri"]/39.22
         
         else:
@@ -190,8 +182,7 @@ class FellerLight(LightEntity):
             if convertedBrightness > 10000:
                 convertedBrightness = 10000
 
-            ip = self._host
-            response = requests.put("http://"+ip+"/api/loads/"+self._id+"/target_state", headers= {'authorization':'Bearer ' + self._apikey}, json={'bri': convertedBrightness})
+            response = requests.put("http://" + self._host + "/api/loads/" + self._id + "/target_state", headers={'authorization':'Bearer ' + self._apikey}, json={'bri': convertedBrightness})
             _LOGGER.info(response.json())
             self._state = True
             self._brightness = response.json()["data"]["target_state"]["bri"]/39.22
@@ -199,20 +190,17 @@ class FellerLight(LightEntity):
 
     def turn_off(self, **kwargs: Any) -> None:
         """Instruct the light to turn off."""
-        ip = self._host
         self._oldbrightness = self._brightness
-        response = requests.put("http://"+ip+"/api/loads/"+self._id+"/ctrl", headers= {'authorization':'Bearer ' + self._apikey}, json={'button': 'off', 'event': 'click'})
+        response = requests.put("http://" + self._host + "/api/loads/" + self._id + "/ctrl", headers={'authorization':'Bearer ' + self._apikey}, json={'button': 'off', 'event': 'click'})
         _LOGGER.info(response.json())
         # {'data': {'id': 6, 'target_state': {'bri': 0}}, 'status': 'success'}
         self._state = False
-        response = requests.get("http://"+ip+"/api/loads/"+self._id, headers= {'authorization':'Bearer ' + self._apikey})
+        response = requests.get("http://" + self._host + "/api/loads/" + self._id, headers={'authorization':'Bearer ' + self._apikey})
         self._brightness = response.json()["data"]["state"]["bri"]/39.22
 
 
     def updatestate(self):
-        ip = self._host
-        # _LOGGER.info("requesting http://"+ip+"/api/loads/"+self._id)
-        return requests.get("http://"+ip+"/api/loads/"+self._id, headers= {'authorization':'Bearer ' + self._apikey})
+        return requests.get("http://" + self._host + "/api/loads/" + self._id, headers={'authorization':'Bearer ' + self._apikey})
 
 
     def update(self) -> None:
