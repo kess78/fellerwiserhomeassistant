@@ -25,7 +25,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     scenes = []
     for value in sceneslist["data"]:
-        scenes.append(FellerScene(value, host, apikey))
+        if not (value.get('target_states') is None):
+            scenes.append(FellerScene(value, host, apikey))
 
     async_add_entities(scenes, True)
 
